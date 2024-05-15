@@ -43,6 +43,10 @@ def loadCam(args, id, cam_info, resolution_scale):
     resized_image_rgb = PILtoTorch(cam_info.image, resolution)
     gt_norm_depth = F.interpolate(torch.tensor(cam_info.depth)[None,None], size=resolution[::-1])[0,0] if cam_info.depth is not None else None
     depth_weight = F.interpolate(torch.tensor(cam_info.depth_weight)[None,None], size=resolution[::-1])[0,0] if cam_info.depth_weight is not None else None
+    
+    mask = None
+    if cam_info.mask:
+        mask = PILtoTorch(cam_info.mask, resolution)[0]
 
     gt_image = resized_image_rgb[:3, ...]
     loaded_mask = None
@@ -53,7 +57,7 @@ def loadCam(args, id, cam_info, resolution_scale):
     return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
                   image=gt_image, depth=gt_norm_depth, depth_weight=depth_weight, gt_alpha_mask=loaded_mask,
-                  image_name=cam_info.image_name, uid=id, data_device=args.data_device)
+                  image_name=cam_info.image_name, uid=id, data_device=args.data_device, mask=mask)
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, args):
     camera_list = []

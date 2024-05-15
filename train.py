@@ -99,6 +99,20 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
+        if viewpoint_cam.mask is not None:
+            mask = viewpoint_cam.mask.cuda()
+            gt_image[:, mask == 0] = 0
+            image[:, mask == 0] = 0
+    
+        # if masks_dir:
+        #     for postf in (".jpg.png", ".png.png"):
+        #         mask_path = os.path.join(masks_dir, f"{viewpoint_cam.image_name}{postf}")
+        #         if os.path.exists(mask_path):
+        #             mask =  np.array(Image.open(mask_path))
+        #             image[:, mask==0]=0
+        #             gt_image[:, mask==0]=0
+        #             break
+
         Ll1 = l1_loss(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
 
@@ -219,6 +233,10 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     depth = render_pkg['depth']
 
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
+                    if viewpoint.mask is not None:
+                        mask = viewpoint.mask.cuda()
+                        gt_image[:, mask == 0] = 0
+                        image[:, mask == 0] = 0
                     if tb_writer and (idx < 5):
                         tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name), image[None], global_step=iteration)
                         if iteration == testing_iterations[0]:

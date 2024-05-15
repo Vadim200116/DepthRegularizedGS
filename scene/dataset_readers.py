@@ -43,6 +43,7 @@ class CameraInfo(NamedTuple):
     FovY: np.array
     FovX: np.array
     image: np.array
+    mask: np.array
     image_path: str
     image_name: str
     width: int
@@ -82,7 +83,7 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, pcd=None, resolution=4, train_idx=None, white_background=False):
+def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folder=None, pcd=None, resolution=4, train_idx=None, white_background=False):
     cam_infos = []
     model_zoe = None
 
@@ -119,6 +120,12 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, pcd=None, r
         image_name = os.path.basename(image_path).split(".")[0]
         image = Image.open(image_path).resize((width//resolution, height//resolution))
         
+        mask=None
+        if masks_folder:
+            mask_path = os.path.join(masks_folder, os.path.basename(extr.name)+".png")
+            if os.path.exists(mask_path):
+                mask = Image.open(mask_path)
+
         if white_background:
             ############################## borrow from blender ##################################
             im_data = np.array(image.convert("RGBA"))
@@ -161,7 +168,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, pcd=None, r
             ##########################################################
             
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image, depth=depthmap, depth_weight=depth_weight,
-                              image_path=image_path, image_name=image_name, width=width, height=height, depthloss=depthloss)
+                              image_path=image_path, image_name=image_name, width=width, height=height, depthloss=depthloss, mask=mask)
         cam_infos.append(cam_info)
         torch.cuda.empty_cache()
 
@@ -533,13 +540,14 @@ def pick_idx_from_360(path, train_idx, kshot, center, num_trials=100_000):
     return final_indice
 
 
-def readColmapSceneInfo(path, images, eval, kshot=1000, seed=0, resolution=4, white_background=False):
+def readColmapSceneInfo(path, images, masked, eval, kshot=1000, seed=0, resolution=4, white_background=False,):
     ## load split_idx.json 
     with open(os.path.join(path, "split_index.json"), "r") as jf:
         jsonf = json.load(jf)
         train_idx, test_idx = jsonf["train"], jsonf["test"]
     
     reading_dir = "images" if images == None else images
+    masks_folder = os.path.join(path, "masks") if masked else None
 
     scene_center_path = os.path.join(path, "center.npy")
     
@@ -556,7 +564,7 @@ def readColmapSceneInfo(path, images, eval, kshot=1000, seed=0, resolution=4, wh
     pcd = fetchPly(ply_path)
     
     cam_infos = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, 
-                                  images_folder=os.path.join(path, reading_dir), pcd=pcd, resolution=resolution, train_idx=train_idx, white_background=white_background).copy()
+                                  images_folder=os.path.join(path, reading_dir), masks_folder=masks_folder, pcd=pcd, resolution=resolution, train_idx=train_idx, white_background=white_background).copy()
 
     if eval:
         train_cam_infos = [cam_infos[i] for i in train_idx]

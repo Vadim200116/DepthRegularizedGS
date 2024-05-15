@@ -18,7 +18,7 @@ from utils.loss_utils import image2canny
 class Camera(nn.Module):
     def __init__(self, colmap_id, R, T, FoVx, FoVy, image, depth, depth_weight, gt_alpha_mask,
                  image_name, uid,
-                 trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda"
+                 trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda", mask=None
                  ):
         super(Camera, self).__init__()
 
@@ -43,6 +43,7 @@ class Camera(nn.Module):
         self.original_depth_weight = depth_weight.to(self.data_device) if depth_weight is not None else None
         self.original_mask = gt_alpha_mask if gt_alpha_mask is not None else None
         # self.original_mask = gt_alpha_mask>0.9 if gt_alpha_mask is not None else None
+        self.mask = mask
         self.image_width = self.original_image.shape[2]
         self.image_height = self.original_image.shape[1]
 

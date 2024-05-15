@@ -54,6 +54,7 @@ class ModelParams(ParamGroup):
         self._white_background = False
         self.data_device = "cuda"
         self.eval = False
+        self.masked = False
         ##################### custom
         self.seed = 42
         # self.usefulldepth = False
