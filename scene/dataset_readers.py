@@ -35,6 +35,8 @@ from scene.gaussian_model import BasicPointCloud
 import imageio
 from datetime import datetime
 from tqdm import tqdm
+import scipy.ndimage
+
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -83,7 +85,7 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folder=None, pcd=None, resolution=4, train_idx=None, white_background=False):
+def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folder=None, mask_dilate=None, pcd=None, resolution=4, train_idx=None, white_background=False):
     cam_infos = []
     model_zoe = None
 
@@ -125,6 +127,10 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folde
             mask_path = os.path.join(masks_folder, os.path.basename(extr.name)+".png")
             if os.path.exists(mask_path):
                 mask = Image.open(mask_path)
+                if mask_dilate:
+                    mask = np.array(mask.convert('L'))
+                    mask = scipy.ndimage.binary_erosion(mask, iterations=mask_dilate, border_value=1).astype(np.uint8)
+                    mask = Image.fromarray(mask * 255)
 
         if white_background:
             ############################## borrow from blender ##################################
@@ -540,7 +546,7 @@ def pick_idx_from_360(path, train_idx, kshot, center, num_trials=100_000):
     return final_indice
 
 
-def readColmapSceneInfo(path, images, masked, eval, kshot=1000, seed=0, resolution=4, white_background=False,):
+def readColmapSceneInfo(path, images, masked, mask_dilate,eval, kshot=1000, seed=0, resolution=4, white_background=False):
     ## load split_idx.json 
     with open(os.path.join(path, "split_index.json"), "r") as jf:
         jsonf = json.load(jf)
@@ -564,7 +570,7 @@ def readColmapSceneInfo(path, images, masked, eval, kshot=1000, seed=0, resoluti
     pcd = fetchPly(ply_path)
     
     cam_infos = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, 
-                                  images_folder=os.path.join(path, reading_dir), masks_folder=masks_folder, pcd=pcd, resolution=resolution, train_idx=train_idx, white_background=white_background).copy()
+                                  images_folder=os.path.join(path, reading_dir), masks_folder=masks_folder, mask_dilate=mask_dilate, pcd=pcd, resolution=resolution, train_idx=train_idx, white_background=white_background).copy()
 
     if eval:
         train_cam_infos = [cam_infos[i] for i in train_idx]
