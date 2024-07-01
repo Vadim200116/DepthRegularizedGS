@@ -556,7 +556,7 @@ def readColmapSceneInfo(path, images, masked, mask_dilate,eval, kshot=1000, seed
             jsonf = json.load(jf)
             train_idx, test_idx = jsonf["train"], jsonf["test"]
     else:
-        train_idx = np.arange(len(os.listdir(os.path.join(path, reading_dir)))).tolist()
+        train_idx = np.arange(len(os.listdir(os.path.join(path, images)))).tolist()
         test_idx = []
     
     reading_dir = "images" if images == None else images
