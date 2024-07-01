@@ -123,13 +123,13 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folde
         if not os.path.exists(image_path):
             continue
 
-        image = Image.open(image_path).resize((width//resolution, height//resolution))
-        
+        image = Image.open(image_path).resize((width, height))
+
         mask=None
         if masks_folder:
             mask_path = os.path.join(masks_folder, os.path.basename(extr.name)+".png")
             if os.path.exists(mask_path):
-                mask = Image.open(mask_path)
+                mask = Image.open(mask_path).resize((width, height))
                 if mask_dilate:
                     mask = np.array(mask.convert('L'))
                     mask = scipy.ndimage.binary_erosion(mask, iterations=mask_dilate, border_value=1).astype(np.uint8)
@@ -148,14 +148,14 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folde
         depthmap, depth_weight = None, None
         depthloss = 1e8
         if pcd is not None and idx in train_idx:
-            depthmap, depth_weight = np.zeros((height//resolution,width//resolution)), np.zeros((height//resolution,width//resolution))
-            K = np.array([[focal_length_x, 0, width//resolution/2],[0,focal_length_y,height//resolution/2],[0,0,1]])
+            depthmap, depth_weight = np.zeros((height,width)), np.zeros((height,width))
+            K = np.array([[focal_length_x, 0, width/2],[0,focal_length_y,height/2],[0,0,1]])
             cam_coord = np.matmul(K, np.matmul(R.transpose(), pcd.points.transpose()) + T.reshape(3,1)) ### for coordinate definition, see getWorld2View2() function
-            valid_idx = np.where(np.logical_and.reduce((cam_coord[2]>0, cam_coord[0]/cam_coord[2]>=0, cam_coord[0]/cam_coord[2]<=width//resolution-1, cam_coord[1]/cam_coord[2]>=0, cam_coord[1]/cam_coord[2]<=height//resolution-1)))[0]
+            valid_idx = np.where(np.logical_and.reduce((cam_coord[2]>0, cam_coord[0]/cam_coord[2]>=0, cam_coord[0]/cam_coord[2]<=width-1, cam_coord[1]/cam_coord[2]>=0, cam_coord[1]/cam_coord[2]<=height-1)))[0]
             pts_depths = cam_coord[-1:, valid_idx]
             cam_coord = cam_coord[:2, valid_idx]/cam_coord[-1:, valid_idx]
-            depthmap[np.round(cam_coord[1]).astype(np.int32).clip(0,height//resolution-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width//resolution-1)] = pts_depths
-            depth_weight[np.round(cam_coord[1]).astype(np.int32).clip(0,height//resolution-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width//resolution-1)] = 1/pcd.errors[valid_idx] if pcd.errors is not None else 1
+            depthmap[np.round(cam_coord[1]).astype(np.int32).clip(0,height-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width-1)] = pts_depths
+            depth_weight[np.round(cam_coord[1]).astype(np.int32).clip(0,height-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width-1)] = 1/pcd.errors[valid_idx] if pcd.errors is not None else 1
             depth_weight = depth_weight/depth_weight.max()
 
             if model_zoe is None:
@@ -551,9 +551,14 @@ def pick_idx_from_360(path, train_idx, kshot, center, num_trials=100_000):
 
 def readColmapSceneInfo(path, images, masked, mask_dilate,eval, kshot=1000, seed=0, resolution=4, white_background=False):
     ## load split_idx.json 
-    with open(os.path.join(path, "split_index.json"), "r") as jf:
-        jsonf = json.load(jf)
-        train_idx, test_idx = jsonf["train"], jsonf["test"]
+    split_path = os.path.join(path, "split_index.json")
+    if os.path.exists(split_path):
+        with open(split_path, "r") as jf:
+            jsonf = json.load(jf)
+            train_idx, test_idx = jsonf["train"], jsonf["test"]
+    else:
+        train_idx = np.arange(len(train_idx)).tolist()
+        test_idx = []
     
     reading_dir = "images" if images == None else images
     masks_folder = os.path.join(path, "masks") if masked else None
