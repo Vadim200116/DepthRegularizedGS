@@ -16,15 +16,23 @@ from math import exp
 
 def l1_loss(network_output, gt, mask=None):
     if mask is not None:
-        network_output[:, mask == 0] = 0
-        gt[:, mask == 0] = 0
+        if mask.shape == network_output.shape:
+            network_output *= mask 
+            gt *= mask 
+        else:
+            network_output[:, mask == 0] = 0
+            gt[:, mask == 0] = 0
 
     return torch.abs((network_output - gt)).mean()
 
 def l2_loss(network_output, gt, mask=None):
     if mask is not None:
-        network_output[:, mask == 0] = 0
-        gt[:, mask == 0] = 0
+        if mask.shape == network_output.shape:
+            network_output *= mask 
+            gt *= mask 
+        else:
+            network_output[:, mask == 0] = 0
+            gt[:, mask == 0] = 0
 
     return ((network_output - gt) ** 2).mean()
 
