@@ -84,9 +84,15 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folder=None, mask_dilate=None, pcd=None, resolution=4, train_idx=None, white_background=False):
+def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folder=None, mask_dilate=None, pcd=None, resolution=4, train_idx=None, white_background=False, depth_precomp_path=None):
     cam_infos = []
     model_zoe = None
+    print(depth_precomp_path)
+    depth_precomp = os.path.exists(depth_precomp_path)
+    if depth_precomp:
+        depth_data = np.load(depth_precomp_path, allow_pickle=True).item()
+    else:
+        depth_data = {}
 
     for idx, key in enumerate(sorted(cam_extrinsics,key=lambda x:cam_extrinsics[x].name)):
         
@@ -147,38 +153,45 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folde
         depthmap, depth_weight = None, None
         depthloss = 1e8
         if pcd is not None and idx in train_idx:
-            depthmap, depth_weight = np.zeros((height,width)), np.zeros((height,width))
-            K = np.array([[focal_length_x, 0, width/2],[0,focal_length_y,height/2],[0,0,1]])
-            cam_coord = np.matmul(K, np.matmul(R.transpose(), pcd.points.transpose()) + T.reshape(3,1)) ### for coordinate definition, see getWorld2View2() function
-            valid_idx = np.where(np.logical_and.reduce((cam_coord[2]>0, cam_coord[0]/cam_coord[2]>=0, cam_coord[0]/cam_coord[2]<=width-1, cam_coord[1]/cam_coord[2]>=0, cam_coord[1]/cam_coord[2]<=height-1)))[0]
-            pts_depths = cam_coord[-1:, valid_idx]
-            cam_coord = cam_coord[:2, valid_idx]/cam_coord[-1:, valid_idx]
-            depthmap[np.round(cam_coord[1]).astype(np.int32).clip(0,height-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width-1)] = pts_depths
-            depth_weight[np.round(cam_coord[1]).astype(np.int32).clip(0,height-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width-1)] = 1/pcd.errors[valid_idx] if pcd.errors is not None else 1
-            depth_weight = depth_weight/depth_weight.max()
+            if depth_precomp:
+                depthmap, depth_weight, depthloss = depth_data[idx]
+            else:
+                depthmap, depth_weight = np.zeros((height,width)), np.zeros((height,width))
+                K = np.array([[focal_length_x, 0, width/2],[0,focal_length_y,height/2],[0,0,1]])
+                cam_coord = np.matmul(K, np.matmul(R.transpose(), pcd.points.transpose()) + T.reshape(3,1)) ### for coordinate definition, see getWorld2View2() function
+                valid_idx = np.where(np.logical_and.reduce((cam_coord[2]>0, cam_coord[0]/cam_coord[2]>=0, cam_coord[0]/cam_coord[2]<=width-1, cam_coord[1]/cam_coord[2]>=0, cam_coord[1]/cam_coord[2]<=height-1)))[0]
+                pts_depths = cam_coord[-1:, valid_idx]
+                cam_coord = cam_coord[:2, valid_idx]/cam_coord[-1:, valid_idx]
+                depthmap[np.round(cam_coord[1]).astype(np.int32).clip(0,height-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width-1)] = pts_depths
+                depth_weight[np.round(cam_coord[1]).astype(np.int32).clip(0,height-1), np.round(cam_coord[0]).astype(np.int32).clip(0,width-1)] = 1/pcd.errors[valid_idx] if pcd.errors is not None else 1
+                depth_weight = depth_weight/depth_weight.max()
 
-            if model_zoe is None:
-                model_zoe = torch.hub.load("./ZoeDepth", "ZoeD_NK", source="local", pretrained=True).to('cuda')
-            
-            source_depth = model_zoe.infer_pil(image.convert("RGB"))
-            target=depthmap.copy()
-            
-            target=((target != 0) * 255).astype(np.uint8)
-            depthmap, depthloss = optimize_depth(source=source_depth, target=depthmap, mask=depthmap>0.0, depth_weight=depth_weight)
-            
-            import cv2
-            from render import depth_colorize_with_mask
-            
-            source, refined = depth_colorize_with_mask(source_depth[None,:,:],dmindmax=(0.0,5.0)).squeeze() , depth_colorize_with_mask(depthmap[None,:,:], dmindmax=(20.0, 130.0)).squeeze() 
-            cv2.imwrite(f"debug/{idx:03d}_source.png", (source[:,:,::-1]*255).astype(np.uint8))
-            cv2.imwrite(f"debug/{idx:03d}_refined.png", (refined[:,:,::-1]*255).astype(np.uint8))
-            cv2.imwrite(f"debug/{idx:03d}_target.png", target)
-            ##########################################################
-            
+                if model_zoe is None:
+                    model_zoe = torch.hub.load("./ZoeDepth", "ZoeD_NK", source="local", pretrained=True).to('cuda')
+                
+                source_depth = model_zoe.infer_pil(image.convert("RGB"))
+                target=depthmap.copy()
+                
+                target=((target != 0) * 255).astype(np.uint8)
+                depthmap, depthloss = optimize_depth(source=source_depth, target=depthmap, mask=depthmap>0.0, depth_weight=depth_weight)
+                
+                depth_data[idx] = (depthmap, depth_weight, depthloss)
+
+                import cv2
+                from render import depth_colorize_with_mask
+                
+                source, refined = depth_colorize_with_mask(source_depth[None,:,:],dmindmax=(0.0,5.0)).squeeze() , depth_colorize_with_mask(depthmap[None,:,:], dmindmax=(20.0, 130.0)).squeeze() 
+                cv2.imwrite(f"debug/{idx:03d}_source.png", (source[:,:,::-1]*255).astype(np.uint8))
+                cv2.imwrite(f"debug/{idx:03d}_refined.png", (refined[:,:,::-1]*255).astype(np.uint8))
+                cv2.imwrite(f"debug/{idx:03d}_target.png", target)
+                ##########################################################
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image, depth=depthmap, depth_weight=depth_weight,
                               image_path=image_path, image_name=image_name, width=width, height=height, depthloss=depthloss, mask=mask)
         cam_infos.append(cam_info)
         torch.cuda.empty_cache()
+
+    if not depth_precomp:
+        np.save(depth_precomp_path, depth_data)
 
     sys.stdout.write('\n')
     return cam_infos
@@ -561,7 +574,7 @@ def readColmapSceneInfo(path, images, masked, mask_dilate,eval, kshot=1000, seed
     
     reading_dir = "images" if images == None else images
     masks_folder = os.path.join(path, "masks") if masked else None
-
+    depth_precomp_path = os.path.join(path, "depth.npy")
     scene_center_path = os.path.join(path, "center.npy")
     
     np.random.seed(seed)
@@ -577,7 +590,7 @@ def readColmapSceneInfo(path, images, masked, mask_dilate,eval, kshot=1000, seed
     pcd = fetchPly(ply_path)
     
     cam_infos = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, 
-                                  images_folder=os.path.join(path, reading_dir), masks_folder=masks_folder, mask_dilate=mask_dilate, pcd=pcd, resolution=resolution, train_idx=train_idx, white_background=white_background).copy()
+                                  images_folder=os.path.join(path, reading_dir), masks_folder=masks_folder, mask_dilate=mask_dilate, pcd=pcd, resolution=resolution, train_idx=train_idx, white_background=white_background, depth_precomp_path=depth_precomp_path).copy()
 
     if eval:
         train_cam_infos = [cam_infos[i] for i in train_idx]
