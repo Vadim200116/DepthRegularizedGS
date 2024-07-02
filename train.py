@@ -122,8 +122,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         ## depth regularization loss (canny)
         if usedepthReg and iteration>=0: 
             depth_mask = (depth>0).detach()
-            nearDepthMean_map = nearMean_map(depth, viewpoint_cam.canny_mask*depth_mask, kernelsize=3)
-            loss = loss + l2_loss(nearDepthMean_map, depth*depth_mask) * 1.0
+            if mask is not None:
+                nearDepthMean_map = nearMean_map(depth, viewpoint_cam.canny_mask * depth_mask * mask, kernelsize=3)
+            else:
+                nearDepthMean_map = nearMean_map(depth, viewpoint_cam.canny_mask*depth_mask, kernelsize=3)
+    
+            loss = loss + l2_loss(nearDepthMean_map, depth*depth_mask, mask=mask) * 1.0
 
         loss.backward()
 

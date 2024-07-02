@@ -21,7 +21,11 @@ def l1_loss(network_output, gt, mask=None):
 
     return torch.abs((network_output - gt)).mean()
 
-def l2_loss(network_output, gt):
+def l2_loss(network_output, gt, mask=None):
+    if mask is not None:
+        network_output[:, mask == 0] = 0
+        gt[:, mask == 0] = 0
+
     return ((network_output - gt) ** 2).mean()
 
 def gaussian(window_size, sigma):
