@@ -116,7 +116,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 gt_maskeddepth = normalize_depth(gt_maskeddepth)
                 depth = normalize_depth(depth)
 
-            deploss = l1_loss(gt_maskeddepth, depth*depth_mask) * 0.5
+            deploss = l1_loss(gt_maskeddepth, depth*depth_mask, mask) * 0.5
             loss = loss + deploss
 
         ## depth regularization loss (canny)
