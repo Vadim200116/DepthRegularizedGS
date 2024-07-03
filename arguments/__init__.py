@@ -64,6 +64,8 @@ class ModelParams(ParamGroup):
         # self.usefullcolmap = False
         # self.isBA = False
         self.kshot = 1000 # a large number
+        self.tv_lambda = 0.5
+
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):

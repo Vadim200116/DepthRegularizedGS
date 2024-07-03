@@ -10,6 +10,10 @@
 #
 
 import os
+import torch
+from random import randint
+from utils.loss_utils import l1_loss, ssim, L1_loss_appearance, total_variation_loss
+from gaussian_renderer import render, network_gui
 import sys
 import uuid
 from tqdm import tqdm
@@ -20,6 +24,7 @@ import torch
 import torchvision
 
 
+from utils.image_utils import psnr, normalize_depth
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from scene import Scene, GaussianModel
@@ -107,6 +112,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         Ll1 = l1_loss(image, gt_image, mask)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image, mask=mask))
 
+
+        if dataset.tv_lambda:
+            depth = normalize_depth(render_pkg["depth"])
+            tv = total_variation_loss(depth)
+            loss += dataset.tv_lambda * tv
+
+
         ### depth supervised loss
         depth = render_pkg["depth"]
         if usedepth and viewpoint_cam.original_depth is not None:
@@ -130,7 +142,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             loss = loss + l2_loss(nearDepthMean_map, depth*depth_mask, mask=mask) * 1.0
 
         loss.backward()
-
         iter_end.record()
 
         with torch.no_grad():
