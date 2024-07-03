@@ -116,7 +116,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 gt_maskeddepth = normalize_depth(gt_maskeddepth)
                 depth = normalize_depth(depth)
 
-            deploss = l1_loss(gt_maskeddepth, depth*depth_mask, mask) * 0.5
+            deploss = l1_loss(gt_maskeddepth, depth*depth_mask, mask) * opt.lambda_depth
             loss = loss + deploss
 
         ## depth regularization loss (canny)
@@ -141,15 +141,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}", "Deploss": f"{ema_depthloss_for_log:.4f}", "#pts": gaussians._xyz.shape[0]})
                 progress_bar.update(10)
                     
-            if iteration % 100 == 0:
-                if iteration > opt.min_iters and ema_depthloss_for_log > prev_depthloss:
-                    training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), [iteration], scene, render, 
-                                    (pipe, background), txt_path = os.path.join(args.model_path, "metric.txt"))
-                    scene.save(iteration)
-                    print(f"!!! Stop Point: {iteration} !!!")
-                    break
-                else:
-                    prev_depthloss = ema_depthloss_for_log
+            # if iteration % 100 == 0:
+            #     if iteration > opt.min_iters and ema_depthloss_for_log > prev_depthloss:
+            #         training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), [iteration], scene, render, 
+            #                         (pipe, background), txt_path = os.path.join(args.model_path, "metric.txt"))
+            #         scene.save(iteration)
+            #         print(f"!!! Stop Point: {iteration} !!!")
+            #         break
+            #     else:
+            #         prev_depthloss = ema_depthloss_for_log
 
             if iteration == opt.iterations:
                 progress_bar.close()

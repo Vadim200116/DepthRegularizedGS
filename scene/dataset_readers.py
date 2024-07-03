@@ -87,7 +87,6 @@ def getNerfppNorm(cam_info):
 def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folder=None, mask_dilate=None, pcd=None, resolution=4, train_idx=None, white_background=False, depth_precomp_path=None):
     cam_infos = []
     model_zoe = None
-    print(depth_precomp_path)
     depth_precomp = os.path.exists(depth_precomp_path)
     if depth_precomp:
         depth_data = np.load(depth_precomp_path, allow_pickle=True).item()
