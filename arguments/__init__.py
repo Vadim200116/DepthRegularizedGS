@@ -64,7 +64,6 @@ class ModelParams(ParamGroup):
         # self.usefullcolmap = False
         # self.isBA = False
         self.kshot = 1000 # a large number
-        self.tv_lambda = 0.5
 
         super().__init__(parser, "Loading Parameters", sentinel)
 
@@ -99,6 +98,11 @@ class OptimizationParams(ParamGroup):
         self.densify_from_iter = 100 #500
         self.densify_until_iter = 15_000
         self.densify_grad_threshold = 0.0002
+        self.random_background = False
+        self.lambda_tv = 0.01
+        self.tv_from_iter  =  0
+        self.tv_until_iter  =  30_000
+
         self.random_background = False # At initial version we used, there was no random_background
         self.lambda_depth = 0.01
 
