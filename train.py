@@ -12,7 +12,7 @@
 import os
 import torch
 from random import randint
-from utils.loss_utils import l1_loss, ssim, L1_loss_appearance, total_variation_loss
+from utils.loss_utils import l1_loss, ssim, total_variation_loss
 from gaussian_renderer import render, network_gui
 import sys
 import uuid
@@ -117,7 +117,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             depth = normalize_depth(render_pkg["depth"])
             tv = total_variation_loss(depth)
             loss += opt.lambda_tv * tv
-
 
         ### depth supervised loss
         depth = render_pkg["depth"]
