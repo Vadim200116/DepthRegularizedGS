@@ -124,7 +124,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             deploss = l1_loss(gt_maskeddepth, depth*depth_mask, mask) * opt.lambda_depth
             loss = loss + deploss
 
-            if opt.lambda_tv:
+            if opt.lambda_tv and iteration > opt.tv_from_iter:
                 diff = depth*depth_mask - gt_maskeddepth
                 tv = total_variation_loss(diff, mask)
                 loss += opt.lambda_tv * tv
