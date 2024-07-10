@@ -14,9 +14,17 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from math import exp
 
-def total_variation_loss(img):
-    w_variance = torch.sum(torch.pow(img[:, :-1] - img[:, 1:], 2))
-    h_variance = torch.sum(torch.pow(img[:-1, :] - img[1:, :], 2))
+def total_variation_loss(img, mask=None):
+
+    d_w = torch.pow(img[:, :-1] - img[:, 1:], 2)
+    d_h = torch.pow(img[:-1, :] - img[1:, :], 2)
+    if mask is not None:
+        d_w *= mask[:, :-1]
+        d_h *= mask[:-1, :]
+
+    w_variance = torch.sum(d_w)
+    h_variance = torch.sum(d_h)
+
     return h_variance + w_variance
 
 
