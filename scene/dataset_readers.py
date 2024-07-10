@@ -171,6 +171,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, masks_folde
                 source_depth = model_zoe.infer_pil(image.convert("RGB"))
                 target=depthmap.copy()
                 
+                depth_weight*=mask
                 target=((target != 0) * 255).astype(np.uint8)
                 depthmap, depthloss = optimize_depth(source=source_depth, target=depthmap, mask=depthmap>0.0, depth_weight=depth_weight)
                 
