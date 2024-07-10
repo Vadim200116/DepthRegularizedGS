@@ -22,8 +22,8 @@ def total_variation_loss(img, mask=None):
         d_w *= mask[:, :-1]
         d_h *= mask[:-1, :]
 
-    w_variance = torch.sum(d_w)
-    h_variance = torch.sum(d_h)
+    w_variance = torch.mean(d_w)
+    h_variance = torch.mean(d_h)
 
     return h_variance + w_variance
 
