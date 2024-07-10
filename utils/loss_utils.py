@@ -14,15 +14,6 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from math import exp
 
-def apply_mask(image, mask):
-    if image.ndimension() == 2:
-        return image * mask
-    if image.ndimension() == 3:
-        return image * mask.unsqueeze(0)
-    if image.ndimension() == 4:
-        return image * mask.unsqueeze(0).unsqueeze(0)
-
-
 def total_variation_loss(img):
     w_variance = torch.sum(torch.pow(img[:, :-1] - img[:, 1:], 2))
     h_variance = torch.sum(torch.pow(img[:-1, :] - img[1:, :], 2))
@@ -30,26 +21,24 @@ def total_variation_loss(img):
 
 
 def l1_loss(network_output, gt, mask=None):
+    diff  = torch.abs(network_output - gt)
     if mask is not None:
-        if mask.shape == network_output.shape:
-            network_output *= mask 
-            gt *= mask 
+        if mask.shape == diff.shape:
+            diff *= mask 
         else:
-            network_output[:, mask == 0] = 0
-            gt[:, mask == 0] = 0
-
-    return torch.abs((network_output - gt)).mean()
+            diff[:, mask == 0] = 0
+    
+    return diff.mean()
 
 def l2_loss(network_output, gt, mask=None):
+    diff  = (network_output - gt) ** 2
     if mask is not None:
-        if mask.shape == network_output.shape:
-            network_output *= mask 
-            gt *= mask 
+        if mask.shape == diff.shape:
+            diff *= mask 
         else:
-            network_output[:, mask == 0] = 0
-            gt[:, mask == 0] = 0
+            diff[:, mask == 0] = 0
 
-    return ((network_output - gt) ** 2).mean()
+    return diff.mean()
 
 def gaussian(window_size, sigma):
     gauss = torch.Tensor([exp(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)) for x in range(window_size)])
